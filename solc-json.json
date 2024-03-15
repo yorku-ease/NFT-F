@@ -1,0 +1,3 @@
+{
+"remappings": [ "@openzeppelin/=/home/wejdene/thesis/NFT-F/node_modules/@openzeppelin/" ]
+}

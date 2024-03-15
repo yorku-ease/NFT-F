@@ -1,0 +1,33 @@
+# Dependency directories
+node_modules/
+.env
+
+# Truffle build directory
+build/
+
+# Truffle configuration files
+truffle-config.js
+truffle.js
+
+# Keep environment variables safe
+.env*
+
+# MacOS system files
+.DS_Store
+
+# Editor directories and files
+.idea/
+*.iml
+*.log
+.vscode/
+venv
+# Compiled code
+*.sol.js
+*.sol.map
+
+# Ignore the bytecode, ABI, and the deployed addresses of contracts.
+build/contracts/*.json
+
+# Ignore package lock files to avoid conflicts between different npm versions
+package-lock.json
+yarn.lock
