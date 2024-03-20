@@ -62,7 +62,7 @@ contract Vault is ERC721Holder, IVault, IAuction, IGovernanceControlled, Ownable
     uint256 public constant FRACTIONAL_TOKENS_PER_NFT = 1000; // Number of fractional tokens minted per NFT deposit.
     uint256 public  auctionDuration = 7 days; // Default duration of each auction.
     uint256 public constant AUCTION_EXTENSION = 15 minutes; // Time to extend the auction if a bid is placed near the end.
-    bool private isGovernanceContractSet;
+    bool private isGovernanceContractSet = false;
     modifier onlyGovernance() {
         require(msg.sender == governanceContract, "Caller is not governance contract");
         _;
@@ -102,12 +102,17 @@ contract Vault is ERC721Holder, IVault, IAuction, IGovernanceControlled, Ownable
      * @param _governanceContract The address of the governance contract.
      */
     function setGovernanceContract(address _governanceContract) external onlyOwner {
-        require(governanceContract != address(0), "Governance contract already set");
-        require(_governanceContract != address(0), "Governance contract should not be the 0 address");
+        require(isGovernanceContractSet == false, "Governance contract already set");
 
     isGovernanceContractSet = true;
         governanceContract = _governanceContract;
         emit GovernanceContractUpdated(_governanceContract);
+    }
+
+
+    // Getter for governance contract
+    function getgovernanceContract() external view returns (address) {
+        return governanceContract;
     }
 
      /**
@@ -342,6 +347,7 @@ contract Vault is ERC721Holder, IVault, IAuction, IGovernanceControlled, Ownable
     function getOriginalOwner(uint256 tokenId) external view returns (address) {
         return originalOwner[tokenId];
     }
+
 
     // Getter for auction details of a specific tokenId
     function getAuctionDetails(uint256 tokenId) external view returns (bool, uint256, uint256, address, uint256) {
