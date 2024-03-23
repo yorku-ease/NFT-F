@@ -1,8 +1,9 @@
 // IVault.sol
+// SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "../node_modules/@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 /**
  * @title IVault

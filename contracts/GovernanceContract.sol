@@ -2,11 +2,11 @@
 pragma solidity ^0.8.20;
 
 // Importing required OpenZeppelin contracts for ERC20 token interactions, ownership management, security, and mathematical operations.
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/governance/TimelockController.sol";
+import "../node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../node_modules/@openzeppelin/contracts/access/Ownable.sol";
+import "../node_modules/@openzeppelin/contracts/governance/TimelockController.sol";
 import "../interfaces/INFTGovernance.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "../node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 /**
  * @title Governance Contract for Fraction Holders
  * @dev This contract implements governance functionalities enabling fraction holders to vote on proposals.
@@ -54,6 +54,7 @@ contract GovernanceContract is INFTGovernance, Ownable, ReentrancyGuard {
         require(_timelockController != address(0), "Invalid TimelockController address");
          governanceToken = IERC20(_governanceToken);
         timelockController = TimelockController(_timelockController);
+
     }
 
     // Modifier to ensure actions are taken within the active voting period of a proposal.

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "../node_modules/@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import "../node_modules/@openzeppelin/contracts/access/Ownable.sol";
 import "../interfaces/IFractionalToken.sol";
-
 /**
  * @title FractionalToken
  * @dev ERC20 Token representing fractional ownership of NFTs, with minting and burning capabilities.

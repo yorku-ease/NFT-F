@@ -1,0 +1,4 @@
+testLimit: 1000
+contracts:
+  FractionalTokenTest:
+    echidna_test_mint: true
