@@ -302,7 +302,7 @@ contract Vault is ERC721Holder, IVault, IAuction, IGovernanceControlled, Ownable
     function redeemFractionValue(uint256 tokenId, uint256 fractionAmount) public nonReentrant hasSaleProceeds(tokenId) {
         uint256 totalSupply = fractionalToken.totalSupply();
         require(totalSupply > 0, "Total supply cannot be zero.");
-        require(fractionalToken.balanceOf(msg.sender) >= fractionAmount, "Insufficient fractional tokens owned.");
+        require(fractionalToken.balanceOf(msg.sender) < fractionAmount, "Insufficient fractional tokens owned.");
 
         // Calculate the redeemable ETH amount for the given fractionAmount
         uint256 redeemableAmount = (nftSaleProceeds[tokenId] * fractionAmount) / totalSupply;
