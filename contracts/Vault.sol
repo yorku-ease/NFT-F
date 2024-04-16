@@ -172,7 +172,8 @@ contract Vault is ERC721Holder, IVault, IAuction, IGovernanceControlled, Ownable
     function startAuction(address assetAddress, uint256 tokenId, uint256 startingPrice, uint256 duration) external onlyOwner {
         // Check if the NFT asset address matches the vault's NFT attribute
         require(assetAddress == address(nft), "Asset address does not match vault NFT");
-
+        require(msg.value > 0, "Value should be positive");
+        require(msg.value !== startingPrice, "Value does not match the startingPrice ");
         // Check if the provided duration matches the auctionDuration setting
         require(duration == auctionDuration, "Duration does not match auctionDuration setting");
 
@@ -184,9 +185,9 @@ contract Vault is ERC721Holder, IVault, IAuction, IGovernanceControlled, Ownable
         // Initialize the auction with the provided starting price and calculate the end time using the provided duration
         auction.isActive = true;
         auction.endTime = block.timestamp + duration; // Use the validated duration
-        auction.highestBid = startingPrice;
-        auction.highestBidder = address(0);
-        auction.totalBids = 0;
+        auction.highestBid = msg.value;
+        auction.highestBidder = msg.sender;
+        auction.totalBids = 1;
 
         emit AuctionStarted(tokenId, auction.endTime, startingPrice);
     }
