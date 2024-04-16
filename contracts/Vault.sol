@@ -240,7 +240,7 @@ contract Vault is ERC721Holder, IVault, IAuction, IGovernanceControlled, Ownable
         require(originalOwnerAddr != address(0), "Original owner not found.");
 
         pendingWithdrawals[originalOwnerAddr] += royaltyAmount;
-
+        nftSaleProceeds[assetId] = auction.highestBid - royaltyAmount
         // Deactivate the auction before transferring the NFT to avoid reentrancy concerns
         auction.isActive = false;
 
