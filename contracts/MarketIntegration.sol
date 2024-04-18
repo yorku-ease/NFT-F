@@ -12,141 +12,110 @@ import "../interfaces/IMarketIntegration.sol";
  * It provides functions to add/remove liquidity to a token pair pool and to trade between the two tokens.
  */
 contract MarketIntegration is IMarketIntegration, Ownable, ReentrancyGuard {
-    // ERC20 tokens for trading
+    using SafeERC20 for IERC20;
+    using SafeMath for uint256;
+
     IERC20 public tokenA;
     IERC20 public tokenB;
+    uint256 public reserveA;
+    uint256 public reserveB;
+    uint256 public totalLiquidity;
+    mapping(address => uint256) public liquidity;
 
-    // Reserves for liquidity of both tokens
-    uint256 private reserveA;
-    uint256 private reserveB;
+    event LiquidityAdded(address indexed provider, uint256 amountA, uint256 amountB, uint256 liquidity);
+    event LiquidityRemoved(address indexed provider, uint256 amountA, uint256 amountB, uint256 liquidity);
+    event TokensSwapped(address indexed trader, address indexed tokenIn, uint256 amountIn, uint256 amountOut);
 
-
-    /**
-     * @dev Constructor to set up the market with two tokens.
-     * @param _tokenA The address of the first token.
-     * @param _tokenB The address of the second token.
-     */
-    constructor(address _tokenA, address _tokenB)  Ownable(msg.sender) {
-        require(_tokenA != address(0) && _tokenB != address(0), "Token addresses cannot be zero.");
+    constructor(address _tokenA, address _tokenB) {
+        require(_tokenA != address(0) && _tokenB != address(0), "Invalid token addresses.");
         tokenA = IERC20(_tokenA);
         tokenB = IERC20(_tokenB);
     }
 
-    /**
-     * @dev Allows a user to add liquidity to the pool for both tokens.
-     * @param tokenAAmount The amount of tokenA to add.
-     * @param tokenBAmount The amount of tokenB to add.
-     */
-    function addLiquidity(uint256 tokenAAmount, uint256 tokenBAmount) external nonReentrant {
-        reserveB += tokenBAmount;
+    function addLiquidity(uint256 amountA, uint256 amountB) external nonReentrant returns (uint256, uint256, uint256) {
+        (uint256 adjustedAmountA, uint256 adjustedAmountB) = _getAdjustedAmounts(amountA, amountB);
+        tokenA.safeTransferFrom(msg.sender, address(this), adjustedAmountA);
+        tokenB.safeTransferFrom(msg.sender, address(this), adjustedAmountB);
 
-    require(
-            tokenA.transferFrom(msg.sender, address(this), tokenAAmount),
-            "TokenA transfer failed"
-        );
-        require(
-            tokenB.transferFrom(msg.sender, address(this), tokenBAmount),
-            "TokenB transfer failed"
-        );        reserveA += tokenAAmount;
-        emit LiquidityAdded(msg.sender, tokenAAmount, tokenBAmount);
+        uint256 mintedLiquidity = _mintLiquidity(adjustedAmountA, adjustedAmountB);
+        liquidity[msg.sender] = liquidity[msg.sender].add(mintedLiquidity);
+        totalLiquidity = totalLiquidity.add(mintedLiquidity);
+
+        emit LiquidityAdded(msg.sender, adjustedAmountA, adjustedAmountB, mintedLiquidity);
+        return (adjustedAmountA, adjustedAmountB, mintedLiquidity);
     }
 
-    /**
-     * @dev Allows a user to remove liquidity from the pool for both tokens.
-     * @param tokenAAmount The amount of tokenA to remove.
-     * @param tokenBAmount The amount of tokenB to remove.
-     */
-    function removeLiquidity(uint256 tokenAAmount, uint256 tokenBAmount) external nonReentrant {
-        reserveA -= tokenAAmount;
-        reserveB -= tokenBAmount;
-        require(tokenAAmount <= reserveA && tokenBAmount <= reserveB, "Insufficient reserves.");
-        require(
-        tokenA.transfer(msg.sender, tokenAAmount), "TokenA transfer failed");
-        require(
-        tokenB.transfer(msg.sender, tokenBAmount), "TokenB transfer failed");
+    function removeLiquidity(uint256 amount) external nonReentrant returns (uint256, uint256) {
+        require(liquidity[msg.sender] >= amount, "Insufficient liquidity.");
+        uint256 amountA = amount.mul(reserveA) / totalLiquidity;
+        uint256 amountB = amount.mul(reserveB) / totalLiquidity;
 
-        emit LiquidityRemoved(msg.sender, tokenAAmount, tokenBAmount);
+        liquidity[msg.sender] = liquidity[msg.sender].sub(amount);
+        totalLiquidity = totalLiquidity.sub(amount);
+        tokenA.safeTransfer(msg.sender, amountA);
+        tokenB.safeTransfer(msg.sender, amountB);
+
+        emit LiquidityRemoved(msg.sender, amountA, amountB, amount);
+        return (amountA, amountB);
     }
 
-    /**
-     * @dev Executes a trade from one token to another.
-     * @param tokenIn The address of the token being traded in.
-     * @param amountIn The amount of the input token being traded.
-     * @param minAmountOut The minimum amount of the output token expected (for slippage protection).
-     */
-    function trade(address tokenIn, uint256 amountIn, uint256 minAmountOut) external nonReentrant {
-        require(tokenIn == address(tokenA) || tokenIn == address(tokenB), "Invalid token address.");
-        require(amountIn > 0 && minAmountOut > 0, "Invalid trading amounts.");
+    function trade(address tokenIn, uint256 amountIn, uint256 minAmountOut) external nonReentrant returns (uint256) {
+        require(tokenIn == address(tokenA) || tokenIn == address(tokenB), "Invalid token address");
+        require(amountIn > 0, "Amount in must be greater than zero");
 
         IERC20 inputToken = IERC20(tokenIn);
-        IERC20 outputToken = (tokenIn == address(tokenA)) ? tokenB : tokenA;
+        IERC20 outputToken = (tokenIn == address(tokenA) ? tokenB : tokenA);
+
         uint256 amountOut = getAmountOut(tokenIn, amountIn);
+        require(amountOut >= minAmountOut, "Slippage exceeds limit");
 
-        require(amountOut >= minAmountOut, "Slippage exceeded.");
-        updateReserves(tokenIn, amountIn, amountOut);
+        inputToken.safeTransferFrom(msg.sender, address(this), amountIn);
+        outputToken.safeTransfer(msg.sender, amountOut);
 
-        require(
-            inputToken.transferFrom(msg.sender, address(this), amountIn),
-            "Input token transfer failed"
-        );
-        require(
-            outputToken.transfer(msg.sender, amountOut),
-            "Output token transfer failed"
-        );
+        _updateReserves(tokenIn, amountIn, amountOut);
 
-        emit TradeExecuted(msg.sender, tokenIn, amountIn, amountOut);
+        emit TradeExecuted(msg.sender, tokenIn, amountIn, amountOut, minAmountOut);
+        return amountOut;
     }
 
-    /**
-     * @dev Calculates the output amount for a given input amount using a simple formula.
-     * @param tokenIn The address of the input token.
-     * @param amountIn The amount of the input token.
-     * @return amountOut The calculated output token amount.
-     */
-    function getAmountOut(address tokenIn, uint256 amountIn) public view returns (uint256) {
+    // Helper functions to handle liquidity calculations
+    function _getAdjustedAmounts(uint256 amountA, uint256 amountB) private view returns (uint256, uint256) {
+        if (reserveA == 0 && reserveB == 0) {
+            return (amountA, amountB);
+        }
+        uint256 adjustedAmountB = amountA.mul(reserveB) / reserveA;
+        if (adjustedAmountB > amountB) {
+            uint256 adjustedAmountA = amountB.mul(reserveA) / reserveB;
+            return (adjustedAmountA, amountB);
+        }
+        return (amountA, adjustedAmountB);
+    }
+
+    function _mintLiquidity(uint256 amountA, uint256 amountB) private returns (uint256) {
+        uint256 liquidityMinted;
+        if (totalLiquidity == 0) {
+            liquidityMinted = SafeMath.sqrt(amountA.mul(amountB)).sub(1000);
+        } else {
+            liquidityMinted = Math.min(amountA.mul(totalLiquidity) / reserveA, amountB.mul(totalLiquidity) / reserveB);
+        }
+        reserveA = reserveA.add(amountA);
+        reserveB = reserveB.add(amountB);
+        return liquidityMinted;
+    }
+
+    function getAmountOut(address tokenIn, uint256 amountIn) private view returns (uint256) {
         require(amountIn > 0, "Amount in must be positive.");
         require(tokenIn == address(tokenA) || tokenIn == address(tokenB), "Invalid token address.");
 
         uint256 inputReserve = tokenIn == address(tokenA) ? reserveA : reserveB;
         uint256 outputReserve = tokenIn == address(tokenA) ? reserveB : reserveA;
 
-        // Assuming a 0.3% fee for simplicity
+        // Assuming a 0.25% fee for simplicity, where 9975 represents 99.75% (10000 - 0.25% fee)
         uint256 fee = 9975;
         uint256 amountInWithFee = amountIn * fee;
         uint256 numerator = amountInWithFee * outputReserve;
         uint256 denominator = (inputReserve * 10000) + amountInWithFee;
+
         return numerator / denominator;
     }
-
-/**
- * @dev Internal function to update reserves after a trade.
-     * @param tokenIn The address of the token being traded in.
-     * @param amountIn The amount of the input token.
-     * @param amountOut The amount of the output token.
-     */
- function updateReserves(address tokenIn, uint256 amountIn, uint256 amountOut) private {
-    if(tokenIn == address(tokenA)) {
-    reserveA += amountIn;
-    reserveB -= amountOut;
-    } else {
-    reserveB += amountIn;
-    reserveA -= amountOut; }
-    }
-
-    /**
-    * @dev Public getter for reserveA.
-     * @return The amount of token A in reserve.
-     */
-    function getReserveA() external view returns (uint256) {
-        return reserveA;
-    }
-
-    /**
-     * @dev Public getter for reserveB.
-     * @return The amount of token B in reserve.
-     */
-    function getReserveB() external view returns (uint256) {
-        return reserveB;
-    }
-
- }
+}

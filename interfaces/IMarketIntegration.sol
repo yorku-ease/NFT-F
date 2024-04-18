@@ -22,7 +22,7 @@ interface IMarketIntegration {
      * @param tokenBAmount Amount of tokenB to remove from the pool.
      * Emits a {LiquidityRemoved} event.
      */
-    function removeLiquidity(uint256 tokenAAmount, uint256 tokenBAmount) external;
+    function removeLiquidity(uint256 amount) external;
 
     /**
      * @notice Executes a trade between tokenA and tokenB.
